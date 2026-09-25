@@ -1,4 +1,6 @@
 document.addEventListener("DOMContentLoaded", async () => {
+  const defaultCustomFormat = "- [<title>](<URL>)";
+  const defaultCustomSeparator = "\\n";
   const tabs = await chrome.tabs.query({
     highlighted: true,
     currentWindow: true,
@@ -8,6 +10,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   const countEl = document.getElementById("count");
   const copyBothBtn = document.getElementById("copyBoth");
   const copyUrlsBtn = document.getElementById("copyUrls");
+  const copyMarkdownBtn = document.getElementById("copyMarkdown");
+  const customFormatInput = document.getElementById("customFormat");
+  const customSeparatorInput = document.getElementById("customSeparator");
+  const copyCustomBtn = document.getElementById("copyCustom");
+
+  customFormatInput.value =
+    localStorage.getItem("customFormat") || defaultCustomFormat;
+  customFormatInput.addEventListener("input", () => {
+    localStorage.setItem("customFormat", customFormatInput.value);
+  });
+  customSeparatorInput.value =
+    localStorage.getItem("customSeparator") ?? defaultCustomSeparator;
+  customSeparatorInput.addEventListener("input", () => {
+    localStorage.setItem("customSeparator", customSeparatorInput.value);
+  });
 
   countEl.textContent = tabs.length;
 
@@ -54,7 +71,40 @@ document.addEventListener("DOMContentLoaded", async () => {
     const text = tabs.map((t) => t.url).join("\n");
     copyAndFlash(text, copyUrlsBtn);
   });
+
+  // Copy links in Markdown format
+  copyMarkdownBtn.addEventListener("click", () => {
+    const text = tabs
+      .map((t) => `- [${escapeMarkdownText(t.title)}](${t.url})`)
+      .join("\n");
+    copyAndFlash(text, copyMarkdownBtn);
+  });
+
+  // Copy tabs using the custom format
+  copyCustomBtn.addEventListener("click", () => {
+    const format = customFormatInput.value;
+    const separator = parseSeparator(customSeparatorInput.value);
+    const text = tabs
+      .map((t) =>
+        format
+          .replaceAll("<title>", t.title)
+          .replaceAll("<URL>", t.url),
+      )
+      .join(separator);
+    copyAndFlash(text, copyCustomBtn);
+  });
 });
+
+function parseSeparator(separator) {
+  return separator
+    .replaceAll("\\n", "\n")
+    .replaceAll("\\t", "\t")
+    .replaceAll("\\\\", "\\");
+}
+
+function escapeMarkdownText(text) {
+  return text.replaceAll("\\", "\\\\").replaceAll("[", "\\[").replaceAll("]", "\\]");
+}
 
 function copyAndFlash(text, btn) {
   navigator.clipboard.writeText(text).then(() => {
